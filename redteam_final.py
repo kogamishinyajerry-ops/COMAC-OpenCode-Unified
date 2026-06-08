@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-redteam_final.py - Final red-team test for COMAC AgentOS v2.2 install package
+redteam_final.py - Final red-team test for COMAC AgentOS v2.3 install package
 Stdlib only. Runs ALL the gates that matter before pushing to GitHub.
 
 Exit codes:
@@ -369,10 +369,102 @@ def gate8_self_contained():
     return rc
 
 
+# ---------- Gate 9: v2.3 CPU-tuned 3B Coder conformance ----------
+
+def gate9_cpu_tuned_3b():
+    step("Gate 9: v2.3 CPU-Tuned Qwen2.5-Coder-3B Conformance")
+    rc = 0
+
+    # 9.1 bin/benchmark-agent-loop.py exists
+    bench = SCRIPT_DIR / "bin" / "benchmark-agent-loop.py"
+    if bench.exists():
+        ok("bin/benchmark-agent-loop.py present")
+    else:
+        fail("bin/benchmark-agent-loop.py MISSING - v2.3 ship gate not satisfied")
+        rc = 2
+        return rc
+
+    # 9.2 bin/benchmark-agent-loop.py is stdlib-only
+    bench_text = bench.read_text(encoding="utf-8", errors="replace")
+    bad_imports = []
+    stdlib_allow = {
+        "json", "socket", "sys", "time", "urllib", "pathlib", "os",
+        "io", "re", "subprocess", "argparse", "http", "ssl", "typing",
+    }
+    for line in bench_text.splitlines():
+        s = line.strip()
+        if s.startswith("import ") or s.startswith("from "):
+            mod = s.split()[1].split(".")[0] if len(s.split()) > 1 else ""
+            if mod and mod not in stdlib_allow:
+                bad_imports.append(mod)
+    if bad_imports:
+        fail(f"benchmark-agent-loop.py imports non-stdlib: {bad_imports}")
+        rc = 2
+    else:
+        ok("benchmark-agent-loop.py: stdlib only")
+
+    # 9.3 providers.json has Qwen2.5-Coder-3B as a local provider
+    prov_path = SCRIPT_DIR / "providers.json"
+    try:
+        cfg = json.loads(prov_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        fail(f"providers.json parse error in Gate 9: {e}")
+        return max(rc, 2)
+
+    coders = []
+    for prov in cfg.get("providers", []):
+        m = (prov.get("model") or "").lower()
+        if "coder" in m and "3b" in m and prov.get("type") == "local":
+            coders.append(prov)
+
+    if not coders:
+        fail("no Qwen2.5-Coder-3B local provider in providers.json")
+        rc = 2
+    else:
+        cod = coders[0]
+        ok(f"providers.json has Coder-3B provider: id={cod.get('id')}, model={cod.get('model')}")
+
+        # 9.4 startupArgs CPU-tuned
+        sa = cod.get("startupArgs", {})
+        ngl = sa.get("n-gpu-layers", sa.get("ngl", "MISSING"))
+        threads = sa.get("threads", "MISSING")
+        ctx = sa.get("context", "MISSING")
+        if ngl == 0 or ngl == "0":
+            ok(f"startupArgs n-gpu-layers={ngl} (CPU-forced)")
+        else:
+            fail(f"startupArgs n-gpu-layers={ngl} (expected 0 for CPU-only deploy)")
+            rc = 2
+        if isinstance(threads, int) and 1 <= threads <= 32:
+            ok(f"startupArgs threads={threads} (CPU range OK)")
+        else:
+            warn(f"startupArgs threads={threads} (unusual; expect 4-16)")
+            rc = max(rc, 1)
+        if isinstance(ctx, int) and ctx >= 4096:
+            ok(f"startupArgs context={ctx} (>= 4096 for agent loops)")
+        else:
+            fail(f"startupArgs context={ctx} (need >= 4096 for 5-step agent loops)")
+            rc = 2
+
+    # 9.5 GGUF file presence (warn if missing - user may not have downloaded yet)
+    expected_gguf = SCRIPT_DIR / "ollama-models" / "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+    if expected_gguf.exists():
+        size_gb = expected_gguf.stat().st_size / 1024 / 1024 / 1024
+        if 1.5 <= size_gb <= 2.5:
+            ok(f"qwen2.5-coder-3b-instruct-q4_k_m.gguf present ({size_gb:.2f} GB, in range)")
+        else:
+            warn(f"qwen2.5-coder-3b-instruct-q4_k_m.gguf unexpected size {size_gb:.2f} GB (expected 1.5-2.5 GB)")
+            rc = max(rc, 1)
+    else:
+        warn("qwen2.5-coder-3b-instruct-q4_k_m.gguf not in ollama-models/ - user must provide locally before deploy")
+        rc = max(rc, 1)
+
+    return rc
+
+
 # ---------- main ----------
 
 def main():
-    print(f"{BOLD}COMAC AgentOS v2.2 — Final Red-Team Test{N}")
+    print(f"{BOLD}COMAC AgentOS v2.3 - Final Red-Team Test{N}")
     print(f"Project: {SCRIPT_DIR}")
     print(f"Python:  {sys.executable} ({sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro})")
 
@@ -385,6 +477,7 @@ def main():
     rc = max(rc, gate6_provider_schema())
     rc = max(rc, gate7_e2e())
     rc = max(rc, gate8_self_contained())
+    rc = max(rc, gate9_cpu_tuned_3b())
 
     # ---- summary ----
     print(f"\n{BOLD}{B}{'=' * 64}{N}")
