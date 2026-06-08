@@ -3,7 +3,8 @@
   "_rules": {
     "type_remote": "curl-only health check, no lifecycle management",
     "type_local": "full lifecycle: port check + start/stop/restart",
-    "healthCheck": "only for type=local, interval in seconds"
+    "healthCheck": "only for type=local, interval in seconds",
+    "vGPU_1Q_note": "vGPU profiles with 1GB framebuffer (e.g. NVIDIA GRID RTX6000-1Q) cannot offload 4B+ models. Use CPU (ngl=0) and prefer 1.5B models for acceptable speed. See DEPLOY-VGPU.md."
   },
   "providers": [
     {
@@ -20,23 +21,25 @@
     },
     {
       "id": "llamacpp",
-      "display": "Qwen3-4B (llama.cpp)",
+      "display": "Qwen2.5-Coder-3B (llama.cpp, CPU-tuned)",
       "type": "local",
       "baseURL": "http://127.0.0.1:11435/v1",
       "apiKey": "llama-local-key",
       "host": "127.0.0.1",
       "port": 11435,
       "executable": "tools\\llama-server.exe",
-      "modelPath": "ollama-models\\qwen3-4b-q4_k_m.gguf",
-      "model": "qwen3:4b-q4_K_M",
+      "modelPath": "ollama-models\\qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+      "model": "qwen2.5-coder:3b-instruct-q4_K_M",
       "context": 8192,
       "output": 4096,
       "timeout": 3,
       "startupArgs": {
         "context": 8192,
         "threads": 8,
-        "ngl": 0,
-        "_comment_ngl": "ngl=0 forces CPU. Bump to 14+ if you have >=2 GB dedicated VRAM (e.g. physical RTX 3060+). vGPU '1Q' (1 GB shared) cannot offload qwen3-4b."
+        "batch-size": 512,
+        "n-gpu-layers": 0,
+        "parallel": 1,
+        "_comment_ngl": "n-gpu-layers=0 forces CPU. Airgapped 16 GB / 1 GB vGPU cannot offload any 3B+ model effectively. CPU path is 8-10 tok/s on 4-8 core CPUs. threads=8 hits SMT sweet spot. ctx=8192 supports 5-step agent loops with tool result backfill. parallel=1 avoids CPU contention for single-user agent use."
       },
       "healthCheck": {
         "interval": 30,
@@ -44,6 +47,33 @@
         "autoRecover": true
       },
       "enabled": true
+    },
+    {
+      "id": "qwen-fast",
+      "display": "Qwen2.5-1.5B (llama.cpp, fast vGPU)",
+      "type": "local",
+      "baseURL": "http://127.0.0.1:11436/v1",
+      "apiKey": "llama-local-key",
+      "host": "127.0.0.1",
+      "port": 11436,
+      "executable": "tools\\llama-server.exe",
+      "modelPath": "ollama-models\\qwen2.5-1.5b-instruct-q4_k_m.gguf",
+      "model": "qwen2.5:1.5b-instruct-q4_K_M",
+      "context": 8192,
+      "output": 4096,
+      "timeout": 3,
+      "startupArgs": {
+        "context": 4096,
+        "threads": 8,
+        "ngl": 0
+      },
+      "healthCheck": {
+        "interval": 30,
+        "retries": 3,
+        "autoRecover": true
+      },
+      "_comment": "OPT-IN: 1.5B fits 1GB vGPU and is 3-4x faster on CPU (~12-18 tok/s). Set enabled:true AFTER downloading ollama-models/qwen2.5-1.5b-instruct-q4_k_m.gguf. See ollama-models/README.md. v2.3 note: with qwen2.5-coder-3b as primary, this is only useful as last-resort fallback when 3B timing out or RAM-constrained (<12 GB free).",
+      "enabled": false
     }
   ],
   "fallback": {
