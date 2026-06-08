@@ -1,9 +1,9 @@
 # Generated files (auto-created by probe.py / run.bat)
+# opencode.json is TRACKED (v2.3.6) — single config file with both providers
 # _runtime.bat is TRACKED (seeded from probe.py output) so that fresh
 # clones can run.bat without first manually running probe.py.
 # probe.py overwrites it on every successful probe; this seed is the
 # fallback when no probe has run yet. See v2.3.4 commit message.
-opencode.json
 agent-memory/CONTEXT.md
 agent-memory/state.json
 agent-memory/alerts.log
@@ -26,4 +26,3 @@ __pycache__/
 
 # Temp
 *.tmp
-nul
