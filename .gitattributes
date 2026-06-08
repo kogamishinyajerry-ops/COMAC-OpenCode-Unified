@@ -1,14 +1,12 @@
-# COMAC AgentOS — Force CRLF on Windows-only scripts
-# Without this, git on macOS/Linux/Windows-with-autocrlf=false rewrites
-# .bat files to LF, breaking CMD.exe parsing on the deployment target.
-# See v2.3.1 commit 8f03285 for context.
+# COMAC AgentOS — Force .bat / .cmd to be treated as BINARY
+# Why: .gitattributes text=eol=crlf normalizes CRLF to LF on commit,
+# which breaks CMD.exe on deploy targets. Treating as binary means:
+#   - git add  : preserves verbatim (no \r stripping)
+#   - commit   : stores exactly what's in the working tree
+#   - checkout : no auto-conversion, deploy target gets CRLF as we wrote it
+# The trade-off is that git diff shows the whole file on every change
+# (no line-level diff for .bat), but that's acceptable for our use case.
+*.bat    binary
+*.cmd    binary
 
-# Scripts that CMD.exe / call must parse — MUST be CRLF
-*.bat          text eol=crlf
-*.cmd          text eol=crlf
-messages/*.txt text eol=crlf
-
-# .py and .md stay as-is (LF is fine for both Python and Markdown)
-*.py           text eol=lf
-*.md           text eol=lf
-*.json         text eol=lf
+# Everything else: let git auto-detect (LF for .py / .md / .json is fine)
