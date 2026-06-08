@@ -6,11 +6,16 @@ agent-memory/state.json
 agent-memory/alerts.log
 agent-memory/sessions/*.md
 
-# Binaries (user provides these)
-bin/
-tools/
-downloads/
-ollama-models/
+# Binaries bundled in package (NOT user-provided anymore)
+# bin/      - extracted OpenCode (auto-created by setup.bat)
+# tools/    - bundled llama-server.exe + DLLs (tracked)
+# downloads/ - bundled opencode-windows-x64.zip (tracked)
+
+# User-provided GGUF models (NOT bundled, must be added manually)
+ollama-models/*.gguf
+# But keep README + .gitkeep tracked
+!ollama-models/README.md
+!ollama-models/.gitkeep
 
 # Python cache
 __pycache__/

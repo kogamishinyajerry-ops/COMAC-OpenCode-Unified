@@ -29,13 +29,14 @@
       "executable": "tools\\llama-server.exe",
       "modelPath": "ollama-models\\qwen3-4b-q4_k_m.gguf",
       "model": "qwen3:4b-q4_K_M",
-      "context": 32768,
+      "context": 8192,
       "output": 4096,
       "timeout": 3,
       "startupArgs": {
-        "context": 32768,
-        "threads": 512,
-        "ngl": 99
+        "context": 8192,
+        "threads": 8,
+        "ngl": 0,
+        "_comment_ngl": "ngl=0 forces CPU. Bump to 14+ if you have >=2 GB dedicated VRAM (e.g. physical RTX 3060+). vGPU '1Q' (1 GB shared) cannot offload qwen3-4b."
       },
       "healthCheck": {
         "interval": 30,

@@ -306,6 +306,69 @@ def gate7_e2e():
     return rc
 
 
+# ---------- Gate 8: Self-contained deploy assets (v2.2 final) ----------
+# Verifies that the package is fully deployable on a clean Windows 10 box
+# without the user having to fetch binaries from the internet.
+
+def gate8_self_contained():
+    step("Gate 8: Self-Contained Deploy Assets (OpenCode + llama-server + GGUF slot)")
+    rc = 0
+
+    # 8.1 OpenCode zip in downloads/
+    opencode_zip = SCRIPT_DIR / "downloads" / "opencode-windows-x64.zip"
+    if opencode_zip.exists():
+        size_mb = opencode_zip.stat().st_size / 1024 / 1024
+        if size_mb > 30:  # expected ~50 MB
+            ok(f"downloads/opencode-windows-x64.zip present ({size_mb:.1f} MB)")
+        else:
+            fail(f"downloads/opencode-windows-x64.zip too small ({size_mb:.1f} MB, expected ~50 MB)")
+            rc = 2
+    else:
+        fail("downloads/opencode-windows-x64.zip MISSING — package is not self-contained")
+        rc = 2
+
+    # 8.2 llama-server.exe in tools/
+    llama_exe = SCRIPT_DIR / "tools" / "llama-server.exe"
+    if llama_exe.exists():
+        size_mb = llama_exe.stat().st_size / 1024 / 1024
+        if size_mb > 5:  # expected ~10 MB
+            ok(f"tools/llama-server.exe present ({size_mb:.1f} MB)")
+        else:
+            fail(f"tools/llama-server.exe too small ({size_mb:.1f} MB, expected ~10 MB)")
+            rc = 2
+    else:
+        fail("tools/llama-server.exe MISSING — package is not self-contained")
+        rc = 2
+
+    # 8.3 llama DLLs (llama.dll, ggml.dll) for runtime
+    required_dlls = ["llama.dll", "ggml.dll", "ggml-base.dll"]
+    for dll in required_dlls:
+        p = SCRIPT_DIR / "tools" / dll
+        if p.exists():
+            ok(f"tools/{dll} present")
+        else:
+            fail(f"tools/{dll} MISSING — llama-server.exe cannot run")
+            rc = 2
+
+    # 8.4 ollama-models/ has README.md explaining user must drop GGUF here
+    ollama_readme = SCRIPT_DIR / "ollama-models" / "README.md"
+    if ollama_readme.exists():
+        ok("ollama-models/README.md present (user knows where to drop GGUF)")
+    else:
+        warn("ollama-models/README.md missing — user may not know to drop GGUF here")
+        rc = max(rc, 1)
+
+    # 8.5 ollama-models/ has at least one .gguf OR README.md (slot is intentional)
+    gguf_files = list((SCRIPT_DIR / "ollama-models").glob("*.gguf"))
+    if gguf_files:
+        ok(f"ollama-models/ has {len(gguf_files)} GGUF file(s) (largest: {max(f.stat().st_size for f in gguf_files) / 1024 / 1024:.0f} MB)")
+    else:
+        info("ollama-models/ is empty (no GGUF bundled — user must provide locally)")
+        # This is WARN, not FAIL, by design
+
+    return rc
+
+
 # ---------- main ----------
 
 def main():
@@ -321,6 +384,7 @@ def main():
     rc = max(rc, gate5_skill_alignment())
     rc = max(rc, gate6_provider_schema())
     rc = max(rc, gate7_e2e())
+    rc = max(rc, gate8_self_contained())
 
     # ---- summary ----
     print(f"\n{BOLD}{B}{'=' * 64}{N}")
