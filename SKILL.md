@@ -41,19 +41,25 @@ menu. (Future: programmatic `--id` would be a thin refactor of `switch.py`.)
 - After switching, **recommend the user re-run `run.bat`** to apply the change.
 - **Never** auto-switch without explicit user consent.
 
-## v2.3.4 — Default provider count
+## v2.3.5 — Default provider count (locked to 2)
 
-Out of the box, `providers.json` ships with **exactly one** provider
-enabled (`llamacpp`, the local Qwen2.5-Coder-3B). The other two
-(`newapi` remote GLM, `qwen-fast` 1.5B) are present but
-`enabled=false`. This is **intentional**:
+Out of the box, `providers.json` ships with **exactly 2 providers**:
+1 enabled by default (`llamacpp` = Qwen2.5-Coder-3B local) and 1 opt-in
+(`newapi` = GLM-5.1-AWQ-4bit remote, `enabled=false` by default).
+
+The previous `qwen-fast` 1.5B fallback has been **removed** in v2.3.5.
+This is intentional — the 1.5B model was an experimental vGPU escape
+hatch that ended up slower than the 3B on the actual deploy target
+(8-10 tok/s vs 12-18 tok/s headline numbers from 2024 didn't pan out
+on the 2018-era CPU). Two real providers beats three theoretical ones.
 
 - `newapi` requires a reachable intranet endpoint + valid API key; on
   airgapped deploy targets it will always probe offline. Disabling it
   avoids REPAIR_MODE loops.
-- `qwen-fast` requires the user to download a separate 1.0 GB GGUF
-  (qwen2.5-1.5b-instruct-q4_k_m.gguf) which is not bundled for size
-  reasons.
+- `llamacpp` requires `ollama-models\qwen2.5-coder-3b-instruct-q4_k_m.gguf`
+  (~1.9 GB, user must place manually — see `ollama-models/README.md`).
 
-To add a provider: edit `providers.json`, set `enabled=true`, save, then
-run `memory probe` (or `python probe.py`) to refresh `_runtime.bat`.
+To enable GLM-5.1: edit `providers.json`, set `newapi.enabled=true`,
+replace `YOUR_NEWAPI_KEY_HERE` with a real key, confirm `baseURL` is
+reachable, then run `memory probe` (or `python probe.py`) to refresh
+`_runtime.bat`.

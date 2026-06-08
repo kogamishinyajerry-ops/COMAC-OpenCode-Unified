@@ -48,39 +48,12 @@
         "autoRecover": true
       },
       "enabled": true
-    },
-    {
-      "id": "qwen-fast",
-      "display": "Qwen2.5-1.5B (llama.cpp, fast vGPU)",
-      "type": "local",
-      "baseURL": "http://127.0.0.1:11436/v1",
-      "apiKey": "llama-local-key",
-      "host": "127.0.0.1",
-      "port": 11436,
-      "executable": "tools\\llama-server.exe",
-      "modelPath": "ollama-models\\qwen2.5-1.5b-instruct-q4_k_m.gguf",
-      "model": "qwen2.5:1.5b-instruct-q4_K_M",
-      "context": 8192,
-      "output": 4096,
-      "timeout": 3,
-      "startupArgs": {
-        "context": 4096,
-        "threads": 8,
-        "ngl": 0
-      },
-      "healthCheck": {
-        "interval": 30,
-        "retries": 3,
-        "autoRecover": true
-      },
-      "_comment": "OPT-IN: 1.5B fits 1GB vGPU and is 3-4x faster on CPU (~12-18 tok/s). Set enabled:true AFTER downloading ollama-models/qwen2.5-1.5b-instruct-q4_k_m.gguf. See ollama-models/README.md. v2.3 note: with qwen2.5-coder-3b as primary, this is only useful as last-resort fallback when 3B timing out or RAM-constrained (<12 GB free).",
-      "enabled": false
     }
   ],
   "fallback": {
     "enabled": true,
     "strategy": "auto-switch",
     "preferLocal": false,
-    "_comment": "If primary provider fails, auto-switch to next available"
+    "_comment": "If primary provider fails, auto-switch to next available. v2.3.5: only 2 providers — newapi (GLM-5.1, opt-in) and llamacpp (Qwen2.5-Coder-3B, default). No qwen-fast anymore."
   }
 }

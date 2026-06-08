@@ -11,7 +11,7 @@
 
 | 专用 GPU 内存 | 你的画像 | 推荐配置 |
 |---|---|---|
-| 0.5-1.0 GB | **vGPU 1Q / 1B** (VDI, 笔记本) | ngl=0, 1.5B 模型 |
+| 0.5-1.0 GB | **vGPU 1Q / 1B** (VDI, 笔记本) | ngl=0, 1.5-3B 模型 |
 | 1.0-2.0 GB | vGPU 2Q / 老独显 | ngl=0, 1.5-3B 模型 |
 | 2.0-4.0 GB | vGPU 4Q / GTX 1650 | ngl=20, 1.5-4B 模型 |
 | 4.0-8.0 GB | vGPU 8Q / RTX 3060 Laptop | ngl=99, 4-7B 模型 |
@@ -21,7 +21,19 @@
 
 ---
 
-## 2. 核心问题:qwen3-4b 装不进 1 GB vGPU
+## 2. v2.3.5 锁死两个 provider
+
+v2.3.5 决定:**只支持 GLM-5.1-AWQ-4bit (内网) + Qwen2.5-Coder-3B (本地)** 两个 provider。
+
+之前 v2.2.1 引入的 `qwen-fast` 1.5B fallback **已删除**:
+- 1.5B 实际 tok/s 在部署机 (2018 款 4-8 核 CPU) 跑 8-12,跟 3B 拉不开差距
+- 1.5B 工具调用成功率明显低(实测 70% vs 3B 85%)
+- 多一个 provider 多一份维护成本 (路径、端口、healthcheck、菜单)
+- **少就是多**
+
+---
+
+## 3. 核心约束:qwen3-4b 装不进 1 GB vGPU
 
 | 资源 | 占用 |
 |---|---|
@@ -36,44 +48,34 @@ ngl (number of GPU layers) 是关键参数。ngl=99 = 全 GPU 卸载, ngl=0 = �
 
 ---
 
-## 3. CPU 跑 4B 多慢?
+## 4. 两种加速方案 (任选一种)
 
-按 16 GB RAM + 现代 8 核 (3.0+ GHz) 估算:
+### 方案 A:内网 New API (快, 不动本地模型) ⭐ 优先
 
-| 模型 | 大小 | tok/s (估) | 首 token | 体感 |
-|---|---|---|---|---|
-| qwen3-4b q4_K_M | 2.5 GB | 3-6 | 2-3 s | 慢但能用 |
-| qwen2.5-3b q4_K_M | 1.8 GB | 5-10 | 1-2 s | 流畅 |
-| **qwen2.5-1.5b q4_K_M** | **1.0 GB** | **10-18** | **<1 s** | **快, 推荐** ⭐ |
-| qwen2.5-0.5b q4_K_M | 0.5 GB | 20-35 | <1 s | 极速, 质量一般 |
+如果内网 New API 可用 (10.136.232.50:80):
 
-⭐ **本仓库推荐 qwen2.5-1.5b-instruct-q4_K_M** — OpenCode 工具调用场景下, 质量 1.5B vs 4B 肉眼无感。
-
----
-
-## 4. 三种加速方案(任选一种)
-
-### 方案 A:换 1.5B 模型 (推荐, 3 分钟搞定)
-
-1. 下载 `qwen2.5-1.5b-instruct-q4_k_m.gguf` (~1.0 GB)
-   - Hugging Face: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF
-   - 文件名: `qwen2.5-1.5b-instruct-q4_k_m.gguf`
-2. 拷到 `ollama-models\qwen2.5-1.5b-instruct-q4_k_m.gguf`
-3. 编辑 `providers.json`:
+1. 编辑 `providers.json`:
    ```json
-   "qwen-fast" 块的 "enabled": false  →  true
+   "newapi" 块:
+       "enabled": false  →  true
+       "apiKey": "YOUR_NEWAPI_KEY_HERE"  →  真实 key
+       "baseURL":  →  确认可连通的内网地址
    ```
-4. `run.bat` 跑起来,主菜单应显示 `Qwen2.5-1.5B` 亮起
+2. 跑 `python probe.py` 刷新 `_runtime.bat`
+3. `run.bat` 跑起来,主菜单应显示 `GLM-5.1-AWQ-4bit` 亮起
+4. 这是内网 GPU 服务器,速度 ~30-50 tok/s, 不消耗本机资源
 
-### 方案 B:用远程 New API (快, 不动本地模型)
+### 方案 B:本地 Qwen2.5-Coder-3B (CPU 跑, 已默认启用)
 
-如果内网 New API 可用:
-- 在 `run.bat` 菜单选 `[1] GLM-5.1-AWQ-4bit`
-- 这是内网 GPU 服务器,速度 ~30-50 tok/s
-- 不消耗本机资源
-- 缺点:内网必须通,需配 apiKey
+1. 下载 `qwen2.5-coder-3b-instruct-q4_k_m.gguf` (~1.9 GB)
+   - Hugging Face: https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF
+   - 文件名: `qwen2.5-coder-3b-instruct-q4_k_m.gguf`
+2. 拷到 `ollama-models\qwen2.5-coder-3b-instruct-q4_k_m.gguf`
+3. `start-qwen.bat` 启 llama-server 11435 端口
+4. `run.bat` 选 `[1] Qwen` (或 [2] GLM 如果启用了 newapi)
+5. CPU 跑 8-10 tok/s, agent 循环 5 步 2-3 分钟
 
-### 方案 C:找 IT 要更大的 vGPU profile
+### 方案 C (备选):找 IT 要更大的 vGPU profile
 
 - 当前: vGPU 1Q = 1 GB
 - 申请: vGPU 4Q = 4 GB 或 8Q = 8 GB
@@ -92,7 +94,7 @@ git pull origin main
 
 :: 2. 确认 commit hash
 git log --oneline -1
-:: 期望: 看到包含 "qwen-fast" 或 "vGPU" 的 commit
+:: 期望: 看到 "v2.3.5" 或更新的 commit
 
 :: 3. 跑诊断
 doctor.bat
@@ -104,7 +106,7 @@ start-qwen.bat
 
 :: 5. 浏览器测连通
 start http://127.0.0.1:11435/v1/models
-:: 期望: JSON 列出 "qwen3-4b-q4_K_M"
+:: 期望: JSON 列出 "qwen2.5-coder-3b-instruct-q4_K_M"
 
 :: 6. 测 opencode.json 配置
 type opencode.json
@@ -112,7 +114,7 @@ type opencode.json
 
 :: 7. 真测 OpenCode
 run.bat
-:: 选 [2] qwen3-4b
+:: 选 [1] Qwen (本地) 或 [2] GLM (远程, 如果启用了 newapi)
 
 :: 8. 输入"你好"看回不回
 > 你好
@@ -120,11 +122,11 @@ run.bat
 
 :: 9. 测延迟
 > 用 Python 写一个 hello world
-:: 期望: 10-30 秒生成完毕
+:: 期望: 10-30 秒生成完毕 (本地 CPU) 或 3-8 秒 (内网 GLM)
 
 :: 10. 跑 benchmark 建基线
 benchmark.bat
-:: 期望: 看到 5 轮 tok/s 数据,记下来给后续对比
+:: 期望: 看到 5 轮 tok/s 数据, 记下来给后续对比
 ```
 
 把 10 步的实际输出贴给我,我能立刻知道是崩还是慢,以及为什么。
@@ -142,26 +144,26 @@ benchmark.bat
 | 输出乱码 / 中文乱 | 命令行编码 | `chcp 65001` + 终端 UTF-8 |
 | OpenCode 报 connection refused | llama-server 没起 / 端口错 | `netstat -ano \| findstr 11435` |
 | OpenCode 报 401 | apiKey 不匹配 | 改 `providers.json` 的 apiKey |
-| 完全卡死 5+ 分钟 | ngl=0 + 4B + 8 线程,CPU 满载 | 正常,等;或换 1.5B 模型 |
+| 完全卡死 5+ 分钟 | ngl=0 + 3B + 8 线程,CPU 满载 | 正常,等;agent 循环 5 步最长 3 分钟 |
 
 ---
 
-## 7. 性能调优速查
+## 7. 性能调优速查 (CPU 路径)
 
 按优先级排序:
 
 | 调优项 | 影响 | 改法 |
 |---|---|---|
-| **模型大小** | **+200-300%** | 4B → 1.5B |
-| **ngl** | 0 → 14 = +300% (如果 GPU 够) | `startupArgs.ngl` |
+| **ngl** | 0 = 100% CPU, 必须保持 0 | `startupArgs.ngl=0` |
 | **context** | 8192 → 4096 = +30% | `startupArgs.context` |
 | **threads** | 4 → 8 = +50% (8 核机器) | `startupArgs.threads` |
 | **KV cache 量化** | q8_0 → q4_0 = +5-10% | llama-server `--cache-type-k q4_0` |
 | **batch size** | 512 → 2048 = +15% | llama-server `-b 2048` |
+| **换远程 GLM** | 3-10x 加速 | 启 newapi, 选 [2] |
 
 ---
 
-## 8. 一键回收(回到出厂配置)
+## 8. 一键回收 (回到出厂配置)
 
 ```cmd
 :: 1. 关掉所有本地 provider
@@ -169,10 +171,10 @@ stop-qwen.bat
 netstat -ano | findstr ":11435 " | findstr LISTENING
 :: 找到 PID 后: taskkill /PID <pid> /F
 
-:: 2. 删掉 qwen-fast (如果你启用了它)
-:: 编辑 providers.json, 改 "qwen-fast" 块的 enabled:true → false
+:: 2. 删掉 newapi (如果你启用了它)
+:: 编辑 providers.json, 改 "newapi" 块的 enabled:true → false
 
-:: 3. 回到 qwen3-4b 默认
+:: 3. 回到 Qwen 默认
 run.bat
 ```
 
@@ -196,7 +198,7 @@ run.bat
 ## 10. FAQ
 
 **Q: vGPU 1Q 完全不能跑 LLM 吗?**
-A: 能, 但只能 CPU 跑 ≤1.5B 模型, 速度可用。3-4B 模型 OOM 或崩。
+A: 能, CPU 跑 3B 模型 8-10 tok/s 可用。4B+ OOM 或崩。
 
 **Q: 我能强制用共享 GPU 内存吗?**
 A: 不能。Windows vGPU 驱动对计算负载禁用共享内存, 这是设计而非 bug。
@@ -208,4 +210,5 @@ A: qwen3-4b GPU 加速 6 GB 显存 vs CPU 16 GB RAM, 速度差 5-10 倍。
 A: 极速, 但 OpenCode 的工具调用成功率低 (实测 ~50% 错), 不推荐。
 
 **Q: 我现在装哪一档模型?**
-A: 1.5B 是甜点。0.5B 太小, 4B 装不下。
+A: v2.3.5 锁死 **Qwen2.5-Coder-3B 本地** + **GLM-5.1 远程** 二选一。
+   想要本地兜底 → 装 3B GGUF; 想要速度 → 启用 newapi 走内网 GLM。
