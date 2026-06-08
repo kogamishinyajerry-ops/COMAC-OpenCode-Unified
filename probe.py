@@ -432,20 +432,48 @@ def _write_runtime_bat(results):
 
 
 def _write_opencode_json(results):
+    """Write opencode.json with BOTH online and offline providers (v2.3.6+).
+
+    Earlier versions only wrote online providers, which made the file
+    shrink to 1 provider on every probe and broke Gate 10 (dual-provider
+    conformance). v2.3.6 fix: read providers.json as the source of truth
+    and write every provider block regardless of online status. The
+    results list is only used to (optionally) annotate online state.
+    """
+    # Build map of id -> online status from results
+    online_map = {r["id"]: r["online"] for r in results}
+
+    # Load providers.json (the canonical config) and write all providers
+    if not PROVIDERS_FILE.exists():
+        return
+    with open(PROVIDERS_FILE, "r", encoding="utf-8") as f:
+        pdata = json.load(f)
+
     providers_block = {}
-    for r in results:
-        pid = r["id"]
+    for p in pdata.get("providers", []):
+        pid = p.get("id")
+        if not pid:
+            continue
+        if not p.get("enabled", True):
+            # v2.3.6: still include disabled providers in the JSON so the
+            # user can enable+restart without re-running anything. OpenCode
+            # simply won't list a disabled model in its selector, but the
+            # connection details stay in the file for one-step opt-in.
+            pass
         providers_block[pid] = {
             "npm": "@ai-sdk/openai-compatible",
-            "name": r["display"],
+            "name": p.get("display", pid),
             "options": {
-                "baseURL": r["baseURL"],
-                "apiKey": r["apiKey"],
+                "baseURL": p.get("baseURL", ""),
+                "apiKey": p.get("apiKey", ""),
             },
             "models": {
-                r["model"]: {
-                    "name": f"{r['display']} ({r['context']} ctx)",
-                    "limit": {"context": r["context"], "output": r["output"]},
+                p.get("model", pid): {
+                    "name": f"{p.get('display', pid)} ({p.get('context', 0)} ctx)",
+                    "limit": {
+                        "context": p.get("context", 8192),
+                        "output": p.get("output", 4096),
+                    },
                 }
             },
         }

@@ -1,13 +1,22 @@
 {
-  "_comment": "OpenCode CLI config. Both providers are registered in this single file. OpenCode reads 'provider.<id>.models.<model_id>' and you select which one to use via `opencode run --model <provider>:<model>`. Switch at runtime via `switch.bat` (which edits providers.json + reruns probe.py to regenerate opencode.json if needed).",
-  "_schema": "OpenCode v0.x provider schema (npm @ai-sdk/openai-compatible for both).",
-  "_rules": {
-    "models_in_provider": "Each provider may have multiple models. Edit `models.<id>` to add a new model without changing the provider's connection details.",
-    "context_and_output": "Must match providers.json (context=8192 / output=4096 for llamacpp; context=32768 / output=4096 for newapi). Drift causes OpenCode to silently truncate.",
-    "baseURL_format": "MUST end with `/v1` (OpenCode strips path; missing /v1 = 404 on first chat)",
-    "apiKey": "llamacpp accepts any non-empty string (no auth); newapi requires a real key from your internal NewAPI gateway."
-  },
   "provider": {
+    "newapi": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "New API (GLM-5.1-AWQ-4bit)",
+      "options": {
+        "baseURL": "http://10.136.232.50/v1",
+        "apiKey": "YOUR_NEWAPI_KEY_HERE"
+      },
+      "models": {
+        "GLM-5.1-AWQ-4bit": {
+          "name": "New API (GLM-5.1-AWQ-4bit) (32768 ctx)",
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          }
+        }
+      }
+    },
     "llamacpp": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Qwen2.5-Coder-3B (llama.cpp, CPU-tuned)",
@@ -24,29 +33,6 @@
           }
         }
       }
-    },
-    "newapi": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "GLM-5.1-AWQ-4bit (remote, opt-in)",
-      "options": {
-        "baseURL": "http://10.136.232.50/v1",
-        "apiKey": "YOUR_NEWAPI_KEY_HERE"
-      },
-      "models": {
-        "GLM-5.1-AWQ-4bit": {
-          "name": "GLM-5.1-AWQ-4bit (32K ctx, internal API gateway)",
-          "limit": {
-            "context": 32768,
-            "output": 4096
-          }
-        }
-      }
     }
-  },
-  "_switcher": {
-    "_comment": "How to switch between providers. Both work in the SAME opencode.json — you don't need to edit this file. switch.py handles it.",
-    "select_local": "opencode run --model llamacpp:qwen2.5-coder:3b-instruct-q4_K_M",
-    "select_remote": "opencode run --model newapi:GLM-5.1-AWQ-4bit",
-    "auto_fallback": "fallback.enabled=true in providers.json makes run.bat auto-pick the first online provider; manual override via switch.bat then run.bat"
   }
 }
