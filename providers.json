@@ -17,7 +17,8 @@
       "context": 32768,
       "output": 4096,
       "timeout": 5,
-      "enabled": true
+      "_comment": "OPT-IN: Default is enabled=false. Airgapped networks cannot reach 10.136.232.50, so leaving this on causes probe to permanently show this provider as offline and run.bat's REPAIR_MODE to keep firing. To enable: (1) set enabled=true, (2) replace YOUR_NEWAPI_KEY_HERE with a real key, (3) confirm the baseURL is reachable from the deploy target, (4) re-run `memory probe`.",
+      "enabled": false
     },
     {
       "id": "llamacpp",

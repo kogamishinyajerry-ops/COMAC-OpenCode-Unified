@@ -40,3 +40,20 @@ menu. (Future: programmatic `--id` would be a thin refactor of `switch.py`.)
 - This skill **does not** restart the watchdog or kill running llama-server.
 - After switching, **recommend the user re-run `run.bat`** to apply the change.
 - **Never** auto-switch without explicit user consent.
+
+## v2.3.4 — Default provider count
+
+Out of the box, `providers.json` ships with **exactly one** provider
+enabled (`llamacpp`, the local Qwen2.5-Coder-3B). The other two
+(`newapi` remote GLM, `qwen-fast` 1.5B) are present but
+`enabled=false`. This is **intentional**:
+
+- `newapi` requires a reachable intranet endpoint + valid API key; on
+  airgapped deploy targets it will always probe offline. Disabling it
+  avoids REPAIR_MODE loops.
+- `qwen-fast` requires the user to download a separate 1.0 GB GGUF
+  (qwen2.5-1.5b-instruct-q4_k_m.gguf) which is not bundled for size
+  reasons.
+
+To add a provider: edit `providers.json`, set `enabled=true`, save, then
+run `memory probe` (or `python probe.py`) to refresh `_runtime.bat`.

@@ -27,6 +27,21 @@ echo %MSG_RUN_PROBING%
 "%PYTHON_EXE%" "%~dp0probe.py"
 set PROBE_EXIT=%ERRORLEVEL%
 
+:: ---- Step 1b: Self-heal: ensure _runtime.bat exists ----
+:: probe.py should have created _runtime.bat. If not (probe crashed before
+:: writing, or the user is running an old binary), fall back to the tracked
+:: seed: copy _runtime_template.bat (if present) or just create a stub so
+:: the `call _runtime.bat 2>nul` below doesn't silently bind empty vars.
+if not exist "%~dp0_runtime.bat" (
+    if exist "%~dp0_runtime_template.bat" (
+        copy /Y "%~dp0_runtime_template.bat" "%~dp0_runtime.bat" >nul
+    ) else (
+        > "%~dp0_runtime.bat" echo @echo off
+        >>"%~dp0_runtime.bat" echo set PROV_COUNT=0
+        >>"%~dp0_runtime.bat" echo set PROV_ONLINE_COUNT=0
+    )
+)
+
 :: ---- Step 2: Handle results ----
 if %PROBE_EXIT% equ 3 goto FATAL_CONFIG
 if %PROBE_EXIT% equ 0 goto PROBE_OK
