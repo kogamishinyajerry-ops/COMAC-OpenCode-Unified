@@ -461,6 +461,132 @@ def gate9_cpu_tuned_3b():
     return rc
 
 
+# ---------- Gate 10: opencode.json dual-provider (v2.3.6) ----------
+def gate10_opencode_dual_provider():
+    """v2.3.6: opencode.json must contain BOTH providers (llamacpp + newapi)
+    in a single file. The user explicitly required this so that switching
+    between 3B local and GLM-5.1 remote doesn't require editing files."""
+    step("Gate 10: opencode.json Dual-Provider (v2.3.6)")
+
+    p = SCRIPT_DIR / "opencode.json"
+    if not p.exists():
+        fail("opencode.json missing — must be tracked in repo (v2.3.6+)")
+        return 2
+
+    # Must NOT be in .gitignore (else fresh clone won't get it)
+    gi = SCRIPT_DIR / ".gitignore"
+    if gi.exists():
+        gi_text = gi.read_text(encoding="utf-8", errors="replace")
+        if re.search(r"^opencode\.json\s*$", gi_text, re.MULTILINE):
+            fail("opencode.json is in .gitignore — fresh clone won't get it")
+        else:
+            ok("opencode.json not in .gitignore")
+
+    # Must be tracked in git
+    r = subprocess.run(
+        ["git", "ls-files", "opencode.json"],
+        cwd=str(SCRIPT_DIR), capture_output=True, text=True
+    )
+    if r.stdout.strip() != "opencode.json":
+        fail(f"opencode.json is not tracked in git: '{r.stdout.strip()}'")
+    else:
+        ok("opencode.json is tracked in git")
+
+    # Must be valid JSON
+    try:
+        cfg = json.loads(p.read_text(encoding="utf-8", errors="replace"))
+        ok("opencode.json is valid JSON")
+    except Exception as e:
+        fail(f"opencode.json parse error: {e}")
+        return 2
+
+    # Must have provider block
+    if "provider" not in cfg:
+        fail("opencode.json missing top-level 'provider' block")
+        return 2
+    else:
+        ok("opencode.json has 'provider' block")
+
+    # Must have BOTH llamacpp and newapi
+    providers = cfg["provider"]
+    if "llamacpp" not in providers:
+        fail("opencode.json missing 'llamacpp' provider")
+    else:
+        llm = providers["llamacpp"]
+        if llm.get("options", {}).get("baseURL", "").endswith("/v1"):
+            ok(f"llamacpp.baseURL: {llm['options']['baseURL']}")
+        else:
+            fail(f"llamacpp.baseURL missing /v1 suffix: {llm.get('options', {}).get('baseURL')}")
+        if llm.get("models"):
+            ok(f"llamacpp.models: {list(llm['models'].keys())}")
+        else:
+            fail("llamacpp has no models")
+
+    if "newapi" not in providers:
+        fail("opencode.json missing 'newapi' provider (GLM-5.1)")
+    else:
+        nw = providers["newapi"]
+        if nw.get("options", {}).get("baseURL", "").endswith("/v1"):
+            ok(f"newapi.baseURL: {nw['options']['baseURL']}")
+        else:
+            fail(f"newapi.baseURL missing /v1 suffix: {nw.get('options', {}).get('baseURL')}")
+        if nw.get("models"):
+            ok(f"newapi.models: {list(nw['models'].keys())}")
+        else:
+            fail("newapi has no models")
+
+    return 0
+
+
+# ---------- Gate 11: .bat/.cmd/.txt in git MUST be CRLF (v2.3.6) ----------
+def gate11_crlf_in_git():
+    """v2.3.6: any .bat/.cmd/messages/*.txt tracked in git must have CRLF
+    line endings. CMD.exe and 'call' silently fail or report
+    '系统找不到指定的命令' when scripts are LF. This gate prevents
+    regression of v2.3.1 / v2.3.3 / v2.3.6 incidents where 13 .bat
+    files ended up LF in git history despite .gitattributes saying CRLF."""
+    step("Gate 11: CRLF in Tracked .bat/.cmd/messages/*.txt (v2.3.6)")
+
+    # Get list of tracked files matching extensions
+    r = subprocess.run(
+        ["git", "ls-files", "-z", "*.bat", "*.cmd", "messages/*.txt"],
+        cwd=str(SCRIPT_DIR), capture_output=True
+    )
+    if r.returncode != 0:
+        fail(f"git ls-files failed: {r.stderr.decode()}")
+        return 2
+
+    files = [f for f in r.stdout.decode("utf-8", errors="replace").split("\x00") if f]
+    if not files:
+        warn("no .bat/.cmd/messages/*.txt files tracked — unexpected")
+        return 1
+
+    lf_violations = []
+    for f in files:
+        # Read blob from HEAD
+        r2 = subprocess.run(
+            ["git", "show", f"HEAD:{f}"],
+            cwd=str(SCRIPT_DIR), capture_output=True
+        )
+        if r2.returncode != 0:
+            fail(f"git show HEAD:{f} failed: {r2.stderr.decode()[:80]}")
+            continue
+        blob = r2.stdout
+        if b"\r\n" not in blob[:500]:
+            lf_violations.append(f)
+        else:
+            ok(f"CRLF OK: {f}")
+
+    if lf_violations:
+        for f in lf_violations:
+            fail(f"LF in git (must be CRLF): {f}")
+        fail(f"remediation: python bin/fix-bat-crlf.py && git add --renormalize . && git commit")
+        return 2
+
+    ok(f"all {len(files)} tracked .bat/.cmd/messages/*.txt are CRLF in git history")
+    return 0
+
+
 # ---------- main ----------
 
 def main():
@@ -478,6 +604,8 @@ def main():
     rc = max(rc, gate7_e2e())
     rc = max(rc, gate8_self_contained())
     rc = max(rc, gate9_cpu_tuned_3b())
+    rc = max(rc, gate10_opencode_dual_provider())
+    rc = max(rc, gate11_crlf_in_git())
 
     # ---- summary ----
     print(f"\n{BOLD}{B}{'=' * 64}{N}")
