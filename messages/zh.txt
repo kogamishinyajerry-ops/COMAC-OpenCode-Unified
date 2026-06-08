@@ -1,0 +1,50 @@
+:: ============================================================
+:: COMAC AgentOS — Chinese Messages v2.1
+:: ============================================================
+
+:: ---- Banner ----
+set MSG_TITLE=COMAC AgentOS v2.1 — Multi-Provider AI Agent
+set MSG_TITLE_ASCII=COMAC AgentOS v2.1
+
+:: ---- run.bat ----
+set MSG_RUN_PROBING=Detecting providers...
+set MSG_RUN_NO_PROVIDER=No providers online. Check network or start local services.
+set MSG_RUN_MENU_TITLE=Select a provider:
+set MSG_RUN_PROMPT=Choice:
+set MSG_RUN_STARTING=Launching with
+
+:: ---- setup.bat ----
+set MSG_SETUP_TITLE=COMAC AgentOS — First-Time Setup
+set MSG_SETUP_STEP1=[1/4] Extract OpenCode binary
+set MSG_SETUP_STEP2=[2/4] Configure providers.json
+set MSG_SETUP_STEP3=[3/4] Run provider probe
+set MSG_SETUP_STEP4=[4/4] Initialize memory system
+set MSG_SETUP_DONE=Setup complete. Edit providers.json then run: run.bat
+set MSG_SETUP_NEXT=Next step: run.bat
+
+:: ---- verify.bat ----
+set MSG_VERIFY_TITLE=COMAC AgentOS — Diagnostic
+set MSG_VERIFY_PROBE=[1/4] Provider detection
+set MSG_VERIFY_CONTEXT=[2/4] Context generation
+set MSG_VERIFY_BINARY=[3/4] Binary check
+set MSG_VERIFY_CONFIG=[4/4] Config check
+set MSG_VERIFY_ALL_OK=ALL CHECKS PASSED
+set MSG_VERIFY_NO_PROVIDER=Config OK but no providers online (network/services down)
+set MSG_VERIFY_HAS_FAIL=SOME CHECKS FAILED
+
+:: ---- start-qwen.bat ----
+set MSG_QWEN_STARTING=Starting local Qwen (llama.cpp)...
+set MSG_QWEN_ALREADY=Local Qwen is already running
+set MSG_QWEN_FAIL=Local Qwen failed to start
+set MSG_QWEN_NOMODEL=Model file not found. Edit providers.json modelPath.
+
+:: ---- stop-qwen.bat ----
+set MSG_QWEN_STOPPING=Stopping local Qwen...
+set MSG_QWEN_STOPPED=Local Qwen stopped
+
+:: ---- Common ----
+set MSG_OK=[OK]
+set MSG_FAIL=[FAIL]
+set MSG_WARN=[WARN]
+set MSG_INFO=[INFO]
+set MSG_SEPARATOR=-------------------------------------------------

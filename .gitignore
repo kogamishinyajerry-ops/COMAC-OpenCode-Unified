@@ -1,0 +1,21 @@
+# Generated files (auto-created by probe.py / run.bat)
+_runtime.bat
+opencode.json
+agent-memory/CONTEXT.md
+agent-memory/state.json
+agent-memory/alerts.log
+agent-memory/sessions/*.md
+
+# Binaries (user provides these)
+bin/
+tools/
+downloads/
+ollama-models/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temp
+*.tmp
+nul

@@ -1,0 +1,54 @@
+{
+  "_comment": "COMAC AgentOS Provider Registry. Add a JSON block to register a new model.",
+  "_rules": {
+    "type_remote": "curl-only health check, no lifecycle management",
+    "type_local": "full lifecycle: port check + start/stop/restart",
+    "healthCheck": "only for type=local, interval in seconds"
+  },
+  "providers": [
+    {
+      "id": "newapi",
+      "display": "New API (GLM-5.1-AWQ-4bit)",
+      "type": "remote",
+      "baseURL": "http://10.136.232.50/v1",
+      "apiKey": "YOUR_NEWAPI_KEY_HERE",
+      "model": "GLM-5.1-AWQ-4bit",
+      "context": 32768,
+      "output": 4096,
+      "timeout": 5,
+      "enabled": true
+    },
+    {
+      "id": "llamacpp",
+      "display": "Qwen3-4B (llama.cpp)",
+      "type": "local",
+      "baseURL": "http://127.0.0.1:11435/v1",
+      "apiKey": "llama-local-key",
+      "host": "127.0.0.1",
+      "port": 11435,
+      "executable": "tools\\llama-server.exe",
+      "modelPath": "ollama-models\\qwen3-4b-q4_k_m.gguf",
+      "model": "qwen3:4b-q4_K_M",
+      "context": 32768,
+      "output": 4096,
+      "timeout": 3,
+      "startupArgs": {
+        "context": 32768,
+        "threads": 512,
+        "ngl": 99
+      },
+      "healthCheck": {
+        "interval": 30,
+        "retries": 3,
+        "autoRecover": true
+      },
+      "enabled": true
+    }
+  ],
+  "fallback": {
+    "enabled": true,
+    "strategy": "auto-switch",
+    "preferLocal": false,
+    "_comment": "If primary provider fails, auto-switch to next available"
+  }
+}
